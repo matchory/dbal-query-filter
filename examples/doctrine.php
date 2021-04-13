@@ -1,51 +1,49 @@
 <?php
 
+declare(strict_types=1);
+
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
+ini_set('display_errors', '1');
 
 require __DIR__ . '/../vendor/autoload.php';
+
+use Codin\DBAL\Adapters\DoctrineAdapter;
+use Codin\DBAL\QueryBuilder;
 
 $conn = Doctrine\DBAL\DriverManager::getConnection(['driver' => 'pdo_sqlite', 'path' => ':memory:']);
 $query = $conn->createQueryBuilder()->from('tbl')->select('*');
 
 parse_str('package_id=1&category[]=payment&is_credit=1&amount_gte=2000&status[]=paid', $params);
 
-$filter = (new Codin\DBAL\QueryFilter())
+$adapter = new DoctrineAdapter($query);
+$builder = new QueryBuilder($adapter);
+
+$sql = $builder
     ->match('package_id')
     ->match('invoice_id')
     ->match('created_by')
-
     ->range('amount')
     ->range('created_at')
-
     ->nullable('is_credit', 'received_from')
     ->nullable('is_debit', 'sent_to')
-
     ->contains('category')
     ->contains('keys', 'id')
-
     ->callback('oub_ref', function ($query, $params) {
         $query->andWhere('package_id in (select account_id from accounts where oub_ref = :oub_ref)')
-            ->setParameter('oub_ref', $params['oub_ref'])
-        ;
+              ->setParameter('oub_ref', $params['oub_ref']);
     })
-
     ->callback('paid_at_gte', function ($query, $params) {
         $query->andWhere('id in (select billing_transfer_id from billing_transfer_events where created_at >= :paid_at_gte and status = :status)')
-            ->setParameter('paid_at_gte', $params['paid_at_gte'])
-            ->setParameter('status', 'paid')
-        ;
+              ->setParameter('paid_at_gte', $params['paid_at_gte'])
+              ->setParameter('status', 'paid');
     })
-
     ->callback('paid_at_lte', function ($query, $params) {
         $query->andWhere('id in (select billing_transfer_id from billing_transfer_events where created_at <= :paid_at_lte and status = :status)')
-            ->setParameter('paid_at_lte', $params['paid_at_lte'])
-            ->setParameter('status', 'paid')
-        ;
+              ->setParameter('paid_at_lte', $params['paid_at_lte'])
+              ->setParameter('status', 'paid');
     })
-
     ->callback('status', function ($query, $params) {
-        $bindings = implode(', ', $this->bindParams($query, 'status', $params['status']));
+        $bindings = implode(', ', $this->bindParams('status', $params['status']));
         $query->andWhere(sprintf('id in (
             select billing_transfer_id
             from billing_transfer_events
@@ -53,8 +51,7 @@ $filter = (new Codin\DBAL\QueryFilter())
             and status in (%s)
         )', $bindings));
     })
-;
+    ->build($params)
+    ->getSQL();
 
-$filter->build($query, $params);
-
-var_dump($query->getSQL(), $query->getParameters());
+var_dump($sql);

@@ -19,8 +19,12 @@
     },
     "require-dev": {
         "friendsofphp/php-cs-fixer": "@stable",
+        "illuminate/database": "^8.36",
         "phpspec/phpspec": "@stable",
         "phpstan/phpstan": "@stable"
+    },
+    "suggest": {
+        "ext-pdo": "To use the query builder on its own"
     },
     "autoload": {
         "psr-4": {

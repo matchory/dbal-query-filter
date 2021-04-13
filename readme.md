@@ -10,12 +10,14 @@ $query = $conn->createQueryBuilder()->from('tbl')->select('*');
 
 parse_str('pid=1&cat[]=games&cat[]=books&updated_at_gte=today', $params);
 
-$filter = (new Codin\DBAL\QueryFilter())
+$adapter = new Codin\DBAL\Adapters\DoctrineAdapter($query);
+$builder = new Codin\DBAL\QueryBuilder($adapter);
+$filter = $builder
     ->match('pid', 'product_id')
     ->range('updated_at')
     ->contains('cat', 'category')
 ;
-$filter->build($query, $params);
+$filter->build($params);
 
 echo $query->getSQL()."\n";
 // SELECT * FROM tbl
